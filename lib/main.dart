@@ -96,6 +96,14 @@ class _ServerControlPageState extends State<ServerControlPage> {
 
     // Run the Python application with the free port
     try {
+      // Determine if we should force a specific keyboard tracking mode
+      String forceMode = "";
+      if (Platform.isMacOS) {
+        forceMode = "quartz"; // Force Quartz on macOS
+      } else if (Platform.isWindows || Platform.isLinux) {
+        forceMode = "pynput"; // Force pynput on Windows/Linux
+      }
+
       SeriousPython.run(
         "app/app.zip", // This should match where your zip file is created
         appFileName: "my_app.py",
@@ -103,6 +111,8 @@ class _ServerControlPageState extends State<ServerControlPage> {
           "PORT": _port.toString(),
           "DEBUG": "True",
           "OPEN_BROWSER": "False", // Prevent automatic browser opening
+          "FORCE_KEYBOARD_MODE":
+              forceMode, // Force specific keyboard tracking mode
         },
       );
 
@@ -182,14 +192,22 @@ class _ServerControlPageState extends State<ServerControlPage> {
     }
 
     try {
-      // Fix WebSocket URL format - ensure pure WebSocket URL without fragments
-      final wsUrl = 'ws://localhost:$_wsPort/';
+      // Create the WebSocket URL - explicitly use no path and no fragments
+      // Ensure it's a clean URL that won't cause 403 errors
+      final wsUrl =
+          Uri(
+            scheme: 'ws',
+            host: 'localhost',
+            port: _wsPort,
+            path: '/', // Explicitly include the root path
+          ).toString();
       print("Connecting to WebSocket at: $wsUrl");
 
-      // Create WebSocket connection with longer timeout
+      // Create WebSocket connection with error handling settings
       _webSocketChannel = IOWebSocketChannel.connect(
-        wsUrl,
+        Uri.parse(wsUrl),
         pingInterval: const Duration(seconds: 5),
+        // Don't set headers or protocols which might cause issues
       );
 
       setState(() {
@@ -336,16 +354,18 @@ class _ServerControlPageState extends State<ServerControlPage> {
       return;
     }
 
-    // If WebSocket is available, use it
+    // If WebSocket is available, try to use it
     if (_webSocketAvailable && _webSocketChannel == null) {
       try {
         _connectWebSocket();
         // Wait a bit for the connection to establish
-        await Future.delayed(const Duration(milliseconds: 500));
+        await Future.delayed(const Duration(milliseconds: 800));
       } catch (e) {
         print("Failed to establish WebSocket connection: $e");
-        // Mark WebSocket as unavailable if we can't connect
-        _webSocketAvailable = false;
+        setState(() {
+          _webSocketAvailable =
+              false; // Mark WebSocket as unavailable if we can't connect
+        });
       }
     }
 
@@ -355,45 +375,72 @@ class _ServerControlPageState extends State<ServerControlPage> {
         final command =
             _isKeyboardTracking ? 'stop_tracking' : 'start_tracking';
         _webSocketChannel!.sink.add(jsonEncode({'command': command}));
+
+        // Set a temporary state to indicate we're waiting for WebSocket response
+        setState(() {
+          _connectionStatus = "Sending command via WebSocket...";
+        });
+
+        // Set a timeout to fall back to HTTP if WebSocket doesn't respond
+        Future.delayed(const Duration(seconds: 3), () {
+          if (_connectionStatus == "Sending command via WebSocket...") {
+            print("WebSocket command timed out, falling back to HTTP");
+            _fallbackToHttpCommand();
+          }
+        });
+
         return;
       } catch (e) {
         print("Error sending WebSocket command: $e");
         // Fall back to HTTP on failure
+        _fallbackToHttpCommand();
       }
+    } else {
+      // WebSocket not available or connection failed, use HTTP
+      _fallbackToHttpCommand();
     }
+  }
 
-    // Fallback to HTTP API if WebSocket failed or is not available
-    try {
-      final url =
-          'http://localhost:$_port/api/keyboard/${_isKeyboardTracking ? 'stop' : 'start'}';
-      final response = await http.post(Uri.parse(url));
+  // New helper method to fallback to HTTP for keyboard commands
+  void _fallbackToHttpCommand() {
+    if (_port == null) return;
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+    final isStarting = !_isKeyboardTracking;
 
-        setState(() {
-          _isKeyboardTracking = !_isKeyboardTracking;
-          if (_isKeyboardTracking) {
-            _keyboardEvents = [];
-            _startEventPolling();
+    http
+        .post(
+          Uri.parse(
+            'http://localhost:$_port/api/keyboard/${isStarting ? 'start' : 'stop'}',
+          ),
+        )
+        .then((response) {
+          if (response.statusCode == 200) {
+            final data = jsonDecode(response.body);
+            setState(() {
+              _isKeyboardTracking = isStarting;
+              if (_isKeyboardTracking) {
+                _keyboardEvents = [];
+                _startEventPolling();
+              } else {
+                _eventPollingTimer?.cancel();
+              }
+              _connectionStatus = "Using HTTP polling (WebSocket unavailable)";
+            });
+
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(data['message'])));
           } else {
-            _eventPollingTimer?.cancel();
+            throw Exception(
+              'Failed to ${isStarting ? 'start' : 'stop'} keyboard tracking',
+            );
           }
+        })
+        .catchError((e) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
         });
-
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(data['message'])));
-      } else {
-        throw Exception(
-          'Failed to ${_isKeyboardTracking ? 'stop' : 'start'} keyboard tracking',
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
-    }
   }
 
   // Start polling for keyboard events (fallback for when WebSocket is not available)
