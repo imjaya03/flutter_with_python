@@ -1,0 +1,8 @@
+flask==2.0.1
+websockets==10.4
+# Make pynput optional since it may not work on all platforms
+pynput==1.7.6; platform_system!="iOS"
+# Alternative keyboard libraries for macOS
+pyobjc-core>=6.0; platform_system=="Darwin"
+pyobjc-framework-Cocoa>=6.0; platform_system=="Darwin"
+pyobjc-framework-Quartz>=6.0; platform_system=="Darwin"

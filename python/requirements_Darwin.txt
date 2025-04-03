@@ -1,0 +1,4 @@
+flask==2.0.1
+werkzeug==2.0.2
+# Keep other dependencies as needed
+# Add any macOS-specific packages here

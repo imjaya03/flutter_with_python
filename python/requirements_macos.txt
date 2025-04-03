@@ -1,0 +1,2 @@
+flask==2.0.1
+# Add any macOS-specific packages here

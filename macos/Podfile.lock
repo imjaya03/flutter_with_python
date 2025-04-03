@@ -1,0 +1,36 @@
+PODS:
+  - FlutterMacOS (1.0.0)
+  - path_provider_foundation (0.0.1):
+    - Flutter
+    - FlutterMacOS
+  - serious_python_darwin (0.9.2):
+    - Flutter
+    - FlutterMacOS
+  - url_launcher_macos (0.0.1):
+    - FlutterMacOS
+
+DEPENDENCIES:
+  - FlutterMacOS (from `Flutter/ephemeral`)
+  - path_provider_foundation (from `Flutter/ephemeral/.symlinks/plugins/path_provider_foundation/darwin`)
+  - serious_python_darwin (from `Flutter/ephemeral/.symlinks/plugins/serious_python_darwin/darwin`)
+  - url_launcher_macos (from `Flutter/ephemeral/.symlinks/plugins/url_launcher_macos/macos`)
+
+EXTERNAL SOURCES:
+  FlutterMacOS:
+    :path: Flutter/ephemeral
+  path_provider_foundation:
+    :path: Flutter/ephemeral/.symlinks/plugins/path_provider_foundation/darwin
+  serious_python_darwin:
+    :path: Flutter/ephemeral/.symlinks/plugins/serious_python_darwin/darwin
+  url_launcher_macos:
+    :path: Flutter/ephemeral/.symlinks/plugins/url_launcher_macos/macos
+
+SPEC CHECKSUMS:
+  FlutterMacOS: 8f6f14fa908a6fb3fba0cd85dbd81ec4b251fb24
+  path_provider_foundation: 2b6b4c569c0fb62ec74538f866245ac84301af46
+  serious_python_darwin: a9aac292602a6f55784a15b24d8d5d795277e281
+  url_launcher_macos: c82c93949963e55b228a30115bd219499a6fe404
+
+PODFILE CHECKSUM: 557caec9d1259090645a0a3e38c09c50b25720e0
+
+COCOAPODS: 1.16.2
